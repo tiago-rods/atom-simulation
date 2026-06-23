@@ -1,1 +1,0 @@
---out-path C:/Codigos/Pessoal/AtomSimulation/atom-simulation/build/gladsources/glad_gl --api gl:core=3.3 --reproducible c 

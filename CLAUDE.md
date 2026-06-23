@@ -24,17 +24,35 @@ Visualizador 3D de orbitais atômicos do hidrogênio usando C++ e OpenGL. Inspir
 
 Sem Eigen — matemática das funções especiais é implementada no próprio `SpecialFunctions.cpp`.
 
-### Comandos de build (quando o código existir)
+### Comandos de build
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-./build/atom-simulation
+# Configurar (baixa dependências na primeira vez — pode demorar)
+cmake --preset default
 
-# Rodar testes
-cmake --build build --target tests
-./build/tests/atom_tests
+# Compilar
+cmake --build --preset default
+
+# Rodar
+./build/atom-simulation.exe
+
+# Rodar testes (Sprint 2+)
+cmake --build --preset default --target atom_tests
+./build/tests/atom_tests.exe
 ```
+
+### Ambiente (Windows)
+
+| Ferramenta | Caminho |
+|---|---|
+| Compilador C/C++ | `C:/msys64/ucrt64/bin/gcc.exe` / `g++.exe` |
+| Ninja | `C:/Users/talve/AppData/Local/Microsoft/WinGet/Packages/Ninja-build.Ninja_Microsoft.Winget.Source_8wekyb3d8bbwe/ninja.exe` |
+| vcpkg | `C:/vcpkg` (não usado ativamente — dependências via FetchContent) |
+
+O preset já configura tudo isso automaticamente. **Não use** `cmake -B build` direto — faltará o PATH do compilador.
+
+Dependências baixadas automaticamente pelo CMake (FetchContent) em `build/_deps/`:
+- GLFW 3.4, GLM 1.0.1, GLAD v2.0.8 (OpenGL 3.3 Core)
 
 ---
 
@@ -138,25 +156,50 @@ atom-simulation/
 
 ---
 
+## Estado atual
+
+O projeto compila e linka sem erros. A janela GLFW abre mas ainda não renderiza nada (GLAD não está inicializado no loop). O próximo passo é o smoke test do Sprint 1: carregar GLAD, desenhar 10k pontos brancos com câmera funcionando.
+
+### O que está implementado e funcional
+- `Application` — loop GLFW, resize callback, ESC fecha
+- `Shader` — lê arquivo GLSL, compila, linka, uniforms mat4/vec3/float
+- `Camera` — órbita com drag, zoom com scroll (lógica pronta, ainda não conectada ao input)
+- `ParticleBuffer` — VAO/VBO com upload e `GL_POINTS`
+- `SphericalCoords` — conversão (r,θ,φ) ↔ (x,y,z)
+- `QuantumNumbers` — struct com validação de (n,l,m)
+- `OrbitalSimulation` — padrão Observer completo (funciona após Sprint 2)
+- `OrbitalFactory` — cria `HydrogenOrbital` + `RejectionSampler`
+- Shaders `particle.vert/.frag` — básicos para Sprint 1
+
+### O que é stub (retorna zero / vazio)
+- `SpecialFunctions` — implementar no Sprint 2
+- `HydrogenOrbital::psi()` — implementar no Sprint 2
+- `RejectionSampler::sample()` — implementar no Sprint 2
+- `CDFSampler::sample()` — implementar no Sprint 4
+- `OrbitalCommands::execute()` — implementar no Sprint 3
+- `OrbitalRenderer::draw()` — integrar com GLAD no Sprint 1/3
+
+---
+
 ## Sprints (~4-5 semanas)
 
 ### Sprint 1 — Fundação 3D (Semana 1)
 **Objetivo:** Janela OpenGL 3D com câmera orbitável e pontos renderizados.
 
-- [ ] `CMakeLists.txt` com GLFW, GLAD, GLM
-- [ ] Estrutura de pastas completa
-- [ ] `Application`: loop, GLFW init, resize callback
-- [ ] `Shader`: compilar `particle.vert/.frag`; uniform MVP matrix
-- [ ] `ParticleBuffer`: VBO de N posições hardcoded
-- [ ] `Camera`: orbit com drag de mouse, zoom com scroll
-- [ ] Smoke test: 10k pontos brancos 3D com câmera funcionando
+- [x] `CMakeLists.txt` com GLFW, GLAD, GLM
+- [x] Estrutura de pastas completa
+- [x] `Application`: loop, GLFW init, resize callback
+- [x] `Shader`: compilar `particle.vert/.frag`; uniform MVP matrix
+- [x] `ParticleBuffer`: VBO de N posições
+- [x] `Camera`: orbit com drag de mouse, zoom com scroll
+- [ ] **Próximo:** inicializar GLAD no loop, conectar Camera ao mouse/scroll, desenhar 10k pontos brancos (smoke test)
 
 ### Sprint 2 — Core Matemático + Física (Semana 2)
 **Objetivo:** Calcular |ψ|² para qualquer (n,l,m) e amostrar pontos no espaço 3D.
 
+- [x] `SphericalCoords`: conversão (r,θ,φ) ↔ (x,y,z)
 - [ ] `SpecialFunctions`: Laguerre associado `L_n^α(x)`, Legendre associado `P_l^m(x)`
 - [ ] `HydrogenOrbital`: `psi(r,θ,φ)` e `psiSquared(r,θ,φ)`
-- [ ] `SphericalCoords`: conversão (r,θ,φ) ↔ (x,y,z)
 - [ ] `RejectionSampler`: implementa `ISampler`
 - [ ] `OrbitalSimulation`: chama sampler, notifica observers
 - [ ] Testes: normalização ∫|ψ|²dV ≈ 1 para orbital 1s
@@ -193,15 +236,7 @@ atom-simulation/
 
 ---
 
-## Ordem de criação dos arquivos (quando iniciar o código)
+## Contexto do usuário
 
-1. `CMakeLists.txt`
-2. `src/main.cpp` + `src/app/Application.{h,cpp}`
-3. `shaders/particle.{vert,frag}` + `src/rendering/Shader.{h,cpp}`
-4. `src/rendering/Camera.{h,cpp}` + `src/rendering/ParticleBuffer.{h,cpp}`
-5. `src/core/math/SpecialFunctions.{h,cpp}` + `SphericalCoords.{h,cpp}`
-6. `src/core/physics/HydrogenOrbital.{h,cpp}` + `QuantumNumbers.h`
-7. `src/core/physics/ISampler.h` + `src/core/sampling/RejectionSampler.{h,cpp}`
-8. `src/simulation/OrbitalSimulation.{h,cpp}` + `ISimulationObserver.h`
-9. `src/rendering/OrbitalRenderer.{h,cpp}`
-10. `src/ui/ICommand.h` + `OrbitalCommands.{h,cpp}` + `src/factory/OrbitalFactory.{h,cpp}`
+- Iniciante em C++ e OpenGL — prefere explicações dos conceitos junto com o código
+- Projeto pessoal de aprendizado: C++ moderno + OpenGL + física quântica em paralelo

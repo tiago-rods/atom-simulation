@@ -52,3 +52,11 @@ add_executable(atom-simulation
 
 target_link_libraries(atom-simulation PRIVATE glfw glad_gl glm::glm)
 target_include_directories(atom-simulation PRIVATE src)
+
+# Copia shaders para build/shaders/ após cada compilação.
+# O executável usa caminhos relativos ao seu diretório, então precisam estar lá.
+add_custom_command(TARGET atom-simulation POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/shaders
+        $<TARGET_FILE_DIR:atom-simulation>/shaders
+)

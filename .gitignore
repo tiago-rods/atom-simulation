@@ -14,9 +14,7 @@ build/
 *.exp
 
 # VS Code (por-máquina)
-.vscode/settings.json
-.vscode/ipch/
-.vscode/.browse.*.db*
+.vscode/
 
 # Windows
 Thumbs.db

@@ -1,0 +1,21 @@
+# Build
+build/
+
+# Binários e objetos
+*.exe
+*.out
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.pdb
+*.ilk
+*.exp
+
+# VS Code (por-máquina)
+.vscode/
+
+# Windows
+Thumbs.db
+desktop.ini

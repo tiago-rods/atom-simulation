@@ -158,32 +158,37 @@ atom-simulation/
 
 ## Estado atual
 
-O projeto compila e linka sem erros. A janela GLFW abre mas ainda não renderiza nada (GLAD não está inicializado no loop). O próximo passo é o smoke test do Sprint 1: carregar GLAD, desenhar 10k pontos brancos com câmera funcionando.
+Sprint 1 e Sprint 2 concluídos. A janela abre, renderiza 10k pontos com câmera orbitável, e o core matemático/físico está implementado. O próximo passo é o Sprint 3: conectar `OrbitalRenderer` como observer e implementar os comandos de teclado.
 
 ### O que está implementado e funcional
-- `Application` — loop GLFW, resize callback, ESC fecha
+- `Application` — loop GLFW, GLAD inicializado, resize callback, ESC fecha
 - `Shader` — lê arquivo GLSL, compila, linka, uniforms mat4/vec3/float
-- `Camera` — órbita com drag, zoom com scroll (lógica pronta, ainda não conectada ao input)
+- `Camera` — órbita com drag, zoom com scroll, conectada ao input
 - `ParticleBuffer` — VAO/VBO com upload e `GL_POINTS`
 - `SphericalCoords` — conversão (r,θ,φ) ↔ (x,y,z)
 - `QuantumNumbers` — struct com validação de (n,l,m)
-- `OrbitalSimulation` — padrão Observer completo (funciona após Sprint 2)
+- `SpecialFunctions` — `assocLaguerre`, `assocLegendre`, `sphericalHarmonic` implementados
+- `HydrogenOrbital` — `psi(r,θ,φ)` e `psiSquared(r,θ,φ)` implementados (verificado matematicamente para 1s)
+- `RejectionSampler` — `sample()` implementado com estimativa de M e jacobiano r²sin(θ)
+- `OrbitalSimulation` — padrão Observer completo
 - `OrbitalFactory` — cria `HydrogenOrbital` + `RejectionSampler`
 - Shaders `particle.vert/.frag` — básicos para Sprint 1
 
 ### O que é stub (retorna zero / vazio)
-- `SpecialFunctions` — implementar no Sprint 2
-- `HydrogenOrbital::psi()` — implementar no Sprint 2
-- `RejectionSampler::sample()` — implementar no Sprint 2
 - `CDFSampler::sample()` — implementar no Sprint 4
 - `OrbitalCommands::execute()` — implementar no Sprint 3
-- `OrbitalRenderer::draw()` — integrar com GLAD no Sprint 1/3
+- `OrbitalRenderer::draw()` — ainda não conectado ao OrbitalSimulation (Sprint 3)
+
+### Notas de implementação
+- `SpecialFunctions.cpp` tem uma função `semiFatorial` local (static) que calcula n! regular (nome enganoso, mas usado consistentemente — não alterar sem revisar todos os usos)
+- `RejectionSampler` usa `rMax = 3.0 * n²` em unidades de Bohr; a estimativa de M amostra 5000 pontos com margem de 10%
+- Bohr units: a₀ = 1.0 em todo o código de física
 
 ---
 
 ## Sprints (~4-5 semanas)
 
-### Sprint 1 — Fundação 3D (Semana 1)
+### Sprint 1 — Fundação 3D (Semana 1) ✅
 **Objetivo:** Janela OpenGL 3D com câmera orbitável e pontos renderizados.
 
 - [x] `CMakeLists.txt` com GLFW, GLAD, GLM
@@ -192,16 +197,16 @@ O projeto compila e linka sem erros. A janela GLFW abre mas ainda não renderiza
 - [x] `Shader`: compilar `particle.vert/.frag`; uniform MVP matrix
 - [x] `ParticleBuffer`: VBO de N posições
 - [x] `Camera`: orbit com drag de mouse, zoom com scroll
-- [ ] **Próximo:** inicializar GLAD no loop, conectar Camera ao mouse/scroll, desenhar 10k pontos brancos (smoke test)
+- [x] GLAD inicializado, Camera conectada ao mouse/scroll, 10k pontos brancos renderizados
 
-### Sprint 2 — Core Matemático + Física (Semana 2)
+### Sprint 2 — Core Matemático + Física (Semana 2) ✅
 **Objetivo:** Calcular |ψ|² para qualquer (n,l,m) e amostrar pontos no espaço 3D.
 
 - [x] `SphericalCoords`: conversão (r,θ,φ) ↔ (x,y,z)
-- [ ] `SpecialFunctions`: Laguerre associado `L_n^α(x)`, Legendre associado `P_l^m(x)`
-- [ ] `HydrogenOrbital`: `psi(r,θ,φ)` e `psiSquared(r,θ,φ)`
-- [ ] `RejectionSampler`: implementa `ISampler`
-- [ ] `OrbitalSimulation`: chama sampler, notifica observers
+- [x] `SpecialFunctions`: Laguerre associado `L_n^α(x)`, Legendre associado `P_l^m(x)`, harmônicos esféricos reais
+- [x] `HydrogenOrbital`: `psi(r,θ,φ)` e `psiSquared(r,θ,φ)`
+- [x] `RejectionSampler`: implementa `ISampler`
+- [ ] `OrbitalSimulation`: chama sampler, notifica observers (estrutura pronta, integração no Sprint 3)
 - [ ] Testes: normalização ∫|ψ|²dV ≈ 1 para orbital 1s
 
 ### Sprint 3 — Visualização de Orbitais (Semana 3)

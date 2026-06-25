@@ -8,7 +8,7 @@ static double semiFatorial(int n) {
     }
     return result;
 };
-
+// podia usar a inline tgamma mas não sabia q existia vou deixar assim
 namespace SpecialFunctions {
 
 double assocLaguerre(int n, int alpha, double x) {

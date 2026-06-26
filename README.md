@@ -154,10 +154,10 @@ posições vec3      →     vertex shader  →  gl_Position (clip space)
 
 ### VAO e VBO
 
-- **VBO (Vertex Buffer Object):** bloco de memória na GPU que armazena as posições $(x, y, z)$ de cada partícula.
-- **VAO (Vertex Array Object):** descreve *como* interpretar o VBO (quantos floats por vértice, quais atributos existem). Sem o VAO, o OpenGL não sabe ler o VBO.
+- **VBO (Vertex Buffer Object):** bloco de memória na GPU. Cada partícula ocupa dois VBOs: um para a posição $(x, y, z)$ e outro para o valor de $|\psi|^2$ naquele ponto.
+- **VAO (Vertex Array Object):** descreve *como* interpretar os VBOs (quantos floats por vértice, quais atributos existem). O VAO mapeia o VBO de posições para o atributo 0 e o VBO de probabilidades para o atributo 1 do vertex shader.
 
-Cada frame, as posições são enviadas para o VBO com `glBufferData` e desenhadas com `glDrawArrays(GL_POINTS, ...)`.
+Cada vez que o orbital muda, as posições e probabilidades são enviadas para os VBOs com `glBufferData` e desenhadas com `glDrawArrays(GL_POINTS, ...)`.
 
 ### Shaders GLSL
 
@@ -167,7 +167,7 @@ Cada frame, as posições são enviadas para o VBO com `glBufferData` e desenhad
 gl_Position = MVP * vec4(position, 1.0);
 ```
 
-**Fragment shader (`particle.frag`):** define a cor de cada fragmento (pixel). No Sprint 3 usará um colormap baseado na probabilidade; por ora é branco.
+**Fragment shader (`particle.frag`):** define a cor de cada fragmento (pixel) usando um colormap **jet** baseado na probabilidade $|\psi|^2$ normalizada: azul (baixa) → ciano → verde → amarelo → vermelho (alta).
 
 ### Matriz MVP
 
@@ -253,12 +253,9 @@ atom-simulation/
 | `E` / `D` | $l\ +1\ /\ -1$ |
 | `R` / `F` | $m\ +1\ /\ -1$ |
 | `T` / `G` | partículas +10k / -10k |
-| `Espaço` | pausar/retomar reamostragem |
 | Mouse drag | orbitar câmera |
 | Scroll | zoom |
 | `ESC` | fechar |
-
-> Controles de teclado disponíveis a partir do Sprint 3.
 
 ---
 

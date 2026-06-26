@@ -2,6 +2,8 @@
 #include "core/math/SphericalCoords.h"
 #include<algorithm>
 
+static constexpr int MAX_N = 5;
+
 OrbitalSimulation::OrbitalSimulation(int n, int l, int m, int particleCount)
     : m_orbital(m_factory.createOrbital(n,l,m)), m_sampler(m_factory.createSampler()), m_count(particleCount)
 {}
@@ -23,7 +25,7 @@ void OrbitalSimulation::resample() {
 void OrbitalSimulation::changeN(int delta) {
     auto qn = m_orbital->qn();
     int n = std::clamp(qn.n + delta, 1, MAX_N);
-    int l = std::min(qn.l, n, -1);// l < n 
+    int l = std::min(qn.l, n - 1);// l < n 
     int m = std::clamp(qn.m, -l, l); // |m| <= l
     m_orbital = m_factory.createOrbital(n, l, m);
     resample();
@@ -31,7 +33,7 @@ void OrbitalSimulation::changeN(int delta) {
 
 void OrbitalSimulation::changeL(int delta) {
     auto qn = m_orbital->qn();
-    int l = std::clamp(qn.n + delta, 0, qn.n - 1);
+    int l = std::clamp(qn.l + delta, 0, qn.l - 1);
     int m = std::clamp(qn.m, -l, l); 
     m_orbital = m_factory.createOrbital(qn.n, l, m);
     resample();
@@ -46,7 +48,7 @@ void OrbitalSimulation::changeM(int delta) {
 
 
 void OrbitalSimulation::addObserver(ISimulationObserver* obs) {
-    auto qn = m_orbital->qn();
+    m_observers.push_back(obs);
 }
 
 void OrbitalSimulation::notify(const std::vector<glm::vec3>& positions, const std::vector<float>& probs) {

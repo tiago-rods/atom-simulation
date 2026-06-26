@@ -1,5 +1,6 @@
 #include "OrbitalRenderer.h"
 #include <glad/gl.h>
+#include <algorithm>
 
 OrbitalRenderer::OrbitalRenderer(int /*viewportW*/, int /*viewportH*/)
     : m_camera(20.0f)

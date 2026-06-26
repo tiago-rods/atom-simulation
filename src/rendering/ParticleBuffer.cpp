@@ -4,7 +4,7 @@
 ParticleBuffer::ParticleBuffer(const std::vector<glm::vec3>& positions, const std::vector<float>& probabilities){
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
-    glGenBuffers(1, &m_vbo);
+    glGenBuffers(1, &m_probVbo);
     upload(positions, probabilities);
 }
 

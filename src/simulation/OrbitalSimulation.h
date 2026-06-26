@@ -12,9 +12,10 @@ public:
     void resample();
     void addObserver(ISimulationObserver* obs);
 
-    void changeN(int delta); // W/S
-    void changeL(int delta); //E/D
-    void changeM(int delta); //R/F
+    void changeN(int delta);            // W/S
+    void changeL(int delta);            // E/D
+    void changeM(int delta);            // R/F
+    void adjustParticleCount(int delta); // T/G
 
     QuantumNumbers quantumNumbers() const { return m_orbital->qn(); }
     int particleCount() const { return m_count; }

@@ -33,7 +33,7 @@ void OrbitalSimulation::changeN(int delta) {
 
 void OrbitalSimulation::changeL(int delta) {
     auto qn = m_orbital->qn();
-    int l = std::clamp(qn.l + delta, 0, qn.l - 1);
+    int l = std::clamp(qn.l + delta, 0, qn.n - 1);
     int m = std::clamp(qn.m, -l, l); 
     m_orbital = m_factory.createOrbital(qn.n, l, m);
     resample();
@@ -46,6 +46,11 @@ void OrbitalSimulation::changeM(int delta) {
       resample();
   }
 
+
+void OrbitalSimulation::adjustParticleCount(int delta) {
+    m_count = std::max(1000, m_count + delta);
+    resample();
+}
 
 void OrbitalSimulation::addObserver(ISimulationObserver* obs) {
     m_observers.push_back(obs);

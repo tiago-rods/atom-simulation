@@ -1,13 +1,11 @@
 #include "Application.h"
-// GLFW_INCLUDE_NONE impede o GLFW de incluir seus próprios headers GL.
-// O GLAD deve ser o único responsável por expor as funções OpenGL.
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glad/gl.h>
 #include <stdexcept>
-#include <random>
-#include "rendering/Shader.h"
-#include "rendering/ParticleBuffer.h"
+#include "simulation/OrbitalSimulation.h"
+#include "rendering/OrbitalRenderer.h"
+#include "ui/OrbitalCommands.h"
 
 Application::Application(int width, int height, const char* title)
     : m_width(width), m_height(height)
@@ -25,64 +23,56 @@ Application::Application(int width, int height, const char* title)
         throw std::runtime_error("Failed to create GLFW window");
     }
 
-    // Armazena 'this' para recuperar o objeto dentro dos callbacks C abaixo.
     glfwSetWindowUserPointer(m_window, this);
 
     glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* w, int width, int height) {
         static_cast<Application*>(glfwGetWindowUserPointer(w))->onResize(width, height);
     });
-
-    // Registra botão do mouse: armazena posição inicial no clique para calcular delta.
     glfwSetMouseButtonCallback(m_window, [](GLFWwindow* w, int btn, int action, int) {
         static_cast<Application*>(glfwGetWindowUserPointer(w))->onMouseButton(btn, action);
     });
-
-    // Registra movimento do mouse: calcula delta desde a última posição e orbita a câmera.
     glfwSetCursorPosCallback(m_window, [](GLFWwindow* w, double x, double y) {
         static_cast<Application*>(glfwGetWindowUserPointer(w))->onCursorPos(x, y);
     });
-
     glfwSetScrollCallback(m_window, [](GLFWwindow* w, double, double dy) {
         static_cast<Application*>(glfwGetWindowUserPointer(w))->onScroll(dy);
     });
 
-    // Contexto OpenGL ativo nesta thread — GLAD precisa disso para consultar os ponteiros.
     glfwMakeContextCurrent(m_window);
 
-    // GLAD resolve os ponteiros de função OpenGL do driver em tempo de execução.
-    // Deve vir obrigatoriamente após MakeContextCurrent e antes de qualquer chamada GL.
     if (!gladLoadGL(glfwGetProcAddress))
         throw std::runtime_error("Failed to initialize GLAD");
 
-    glEnable(GL_DEPTH_TEST);        // descarta fragmentos ocluídos usando o z-buffer
-    glEnable(GL_PROGRAM_POINT_SIZE); // permite o shader controlar o tamanho dos pontos via gl_PointSize
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
-    // Shader e ParticleBuffer fazem chamadas GL no construtor,
-    // por isso só são criados aqui — depois do GLAD estar carregado.
-    m_shader = std::make_unique<Shader>("shaders/particle.vert", "shaders/particle.frag");
+    // Criados aqui — depois do GLAD carregar — porque fazem chamadas GL no construtor.
+    m_sim      = std::make_unique<OrbitalSimulation>(1, 0, 0);
+    m_renderer = std::make_unique<OrbitalRenderer>(width, height);
 
-    // Smoke test: 10k pontos gerados por rejection sampling em uma esfera de raio 10.
-    // Rejection sampling: gera ponto no cubo [-1,1]³, descarta se fora da esfera unitária.
-    // Isso garante distribuição uniforme no volume (ao contrário de gerar em coords esféricas direto).
-    std::mt19937 rng(42);
-    std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-    std::vector<glm::vec3> pts;
-    pts.reserve(10'000);
-    while (static_cast<int>(pts.size()) < 10'000) {
-        glm::vec3 p{dist(rng), dist(rng), dist(rng)};
-        if (glm::length(p) <= 1.0f)
-            pts.push_back(p * 10.0f);
-    }
-    m_particles = std::make_unique<ParticleBuffer>(pts);
+    // Liga o renderer como observer: quando m_sim gera partículas, avisa o renderer.
+    m_sim->addObserver(m_renderer.get());
+
+    // Mapeia teclas GLFW para comandos.
+    m_commands[GLFW_KEY_W] = std::make_unique<IncreaseN>(*m_sim);
+    m_commands[GLFW_KEY_S] = std::make_unique<DecreaseN>(*m_sim);
+    m_commands[GLFW_KEY_E] = std::make_unique<IncreaseL>(*m_sim);
+    m_commands[GLFW_KEY_D] = std::make_unique<DecreaseL>(*m_sim);
+    m_commands[GLFW_KEY_R] = std::make_unique<IncreaseM>(*m_sim);
+    m_commands[GLFW_KEY_F] = std::make_unique<DecreaseM>(*m_sim);
+    m_commands[GLFW_KEY_T] = std::make_unique<IncreaseParticles>(*m_sim);
+    m_commands[GLFW_KEY_G] = std::make_unique<DecreaseParticles>(*m_sim);
+
+    // Primeira amostragem: dispara onParticlesUpdated → renderer recebe os pontos.
+    m_sim->resample();
 }
 
 Application::~Application() {
-    // Em C++, o corpo do destrutor roda ANTES dos destrutores dos membros.
-    // Se deixássemos os unique_ptrs serem destruídos normalmente, as chamadas
-    // glDelete* aconteceriam depois de glfwTerminate() — contexto já inválido.
-    // Resetar explicitamente aqui garante a ordem correta de limpeza.
-    m_shader.reset();
-    m_particles.reset();
+    // Ordem importa: commands referenciam m_sim, renderer usa GL.
+    // Destruir explicitamente antes de encerrar o contexto OpenGL.
+    m_commands.clear();
+    m_renderer.reset();
+    m_sim.reset();
     glfwDestroyWindow(m_window);
     glfwTerminate();
 }
@@ -90,27 +80,8 @@ Application::~Application() {
 void Application::run() {
     while (!glfwWindowShouldClose(m_window)) {
         processInput();
-
-        // Fundo azul escuro: vec4(R, G, B, alpha) — valores em [0,1].
-        glClearColor(0.05f, 0.05f, 0.1f, 1.0f);
-        // Limpa cor e profundidade antes de desenhar o próximo frame.
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // Matriz de projeção perspectiva depende do aspect ratio atual da janela.
-        float aspect = static_cast<float>(m_width) / static_cast<float>(m_height);
-
-        // Ativa o shader e envia as matrizes de câmera como uniforms.
-        // Os uniforms ficam no shader até o próximo use() de outro programa.
-        m_shader->use();
-        m_shader->setMat4("uView",       m_camera.view());
-        m_shader->setMat4("uProjection", m_camera.projection(aspect));
-
-        m_particles->draw(); // glDrawArrays(GL_POINTS, ...)
-
-        // Apresenta o back buffer na tela (double buffering).
+        m_renderer->draw(m_width, m_height);
         glfwSwapBuffers(m_window);
-
-        // Dispara os callbacks registrados acima com os eventos acumulados.
         glfwPollEvents();
     }
 }
@@ -118,19 +89,25 @@ void Application::run() {
 void Application::processInput() {
     if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(m_window, true);
+
+    // Executa o comando só na borda de subida (transição não-pressionado → pressionado).
+    for (auto& [key, cmd] : m_commands) {
+        bool pressed = glfwGetKey(m_window, key) == GLFW_PRESS;
+        if (pressed && !m_prevKeys[key])
+            cmd->execute();
+        m_prevKeys[key] = pressed;
+    }
 }
 
 void Application::onResize(int width, int height) {
     m_width  = width;
     m_height = height;
-    // Ajusta o viewport para que o OpenGL saiba o novo tamanho da área de desenho.
     glViewport(0, 0, width, height);
 }
 
 void Application::onMouseButton(int button, int action) {
     if (button != GLFW_MOUSE_BUTTON_LEFT) return;
     m_mousePressed = (action == GLFW_PRESS);
-    // Captura posição atual no momento do clique para evitar salto no primeiro drag.
     if (m_mousePressed) {
         double x, y;
         glfwGetCursorPos(m_window, &x, &y);
@@ -143,12 +120,11 @@ void Application::onCursorPos(double x, double y) {
     float fx = static_cast<float>(x);
     float fy = static_cast<float>(y);
     if (m_mousePressed)
-        m_camera.onMouseDrag(fx - m_lastMouseX, fy - m_lastMouseY);
-    // Atualiza sempre — necessário para ter lastPos correto no próximo evento.
+        m_renderer->camera().onMouseDrag(fx - m_lastMouseX, fy - m_lastMouseY);
     m_lastMouseX = fx;
     m_lastMouseY = fy;
 }
 
 void Application::onScroll(double dy) {
-    m_camera.onScroll(static_cast<float>(dy));
+    m_renderer->camera().onScroll(static_cast<float>(dy));
 }
